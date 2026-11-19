@@ -33,8 +33,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Noto+Sans+Mono:wght@500;700&display=swap" rel="stylesheet" />
-    <!-- Excel出力用（defer：読み込みが遅くても画面表示を止めない。読めない場合はCSVで出力） -->
-    <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <!-- Excel出力用のExcelJSは、ボタンを押したときだけ読み込みます（読めない場合はCSVで出力） -->
     <style>
       :root{
         --bg:#eef1f4;
@@ -380,7 +379,7 @@
         <div class="card">
           <p class="q-step">STEP 0 ・ 工事を選ぶ</p>
           <h2 class="q-title">どの工事を見積りますか？</h2>
-          <p class="q-help">1つだけでもOK。複数選ぶと、まとめて1枚の「フルリフォーム見積書」になります。はじめに建物の種類・搬入経路・築年数の共通質問（3問）に答えてから、各工事の質問（メーカー・サイズ・配管やガスの条件まで）へ進みます。</p>
+          <p class="q-help">1つだけでもOK。複数選ぶと、まとめて1枚の「フルリフォーム見積書」になります。はじめに建物の種類・階数（搬入）・築年数の共通質問（3〜4問）に答えてから、各工事の質問（メーカー・サイズ・配管やガスの条件まで）へ進みます。</p>
           <div class="cat-grid" id="catGrid"></div>
           <div class="start-actions">
             <button class="btn accent grow" id="startBtn" type="button" disabled>選択した工事で質問をはじめる →</button>
@@ -626,7 +625,7 @@ cRepairPerM2: 250, cFurniture: 12000,
 tubJinzai: 48000, tubHoro: 62000,
 kHoodPropeller: -15000, kHoodDouji: 28000, kWallTile: 65000,
 vKumori: 6000, toiletSetDisc: -5000,
-carryStairsBase: 20000, carryStairsPer: 10000
+carryStairsBase: 20000, carryStairsPer: 10000, carryStairs3f: 15000
 };
 
 /* ============================================================
@@ -708,13 +707,48 @@ options: [
 ]
 },
 {
-id: "route", step: "STEP 2 ・ 搬入経路", type: "single",
-title: "大きな部材の搬入経路は？",
-help: "浴槽・キッチン本体・洗面台などは大きな部材です。エレベーターが無い場合は手運びの割増がかかります。",
+id: "floor", step: "STEP 2 ・ 工事する階", type: "single",
+when: function(a){ return a.buildingType === "detached";},
+title: "工事する場所は何階ですか？",
+help: "浴槽・キッチン本体・洗面台などの大きな部材を、階段で運ぶ手間が変わります。複数の工事がある場合は、いちばん上の階を選んでください。",
 options: [
-{ v: "elevator", label: "エレベーターあり", desc: "マンションのエレベーターで搬入できる"},
-{ v: "ground", label: "1階・平坦で搬入しやすい", desc: "戸建ての1階など、追加費用なし"},
-{ v: "stairs", label: "階段のみ（2階以上・手運び）", desc: "搬入費の割増を計上します"},
+{ v: "f1", label: "1階", desc: "追加費用なし"},
+{ v: "f2", label: "2階", desc: "階段搬入の割増を計上します"},
+{ v: "f3", label: "3階以上", desc: "階段搬入の割増（3階分）を計上します"},
+{ v: "unknown", label: "わからない", desc: "備考に現地確認と記載します"}
+]
+},
+{
+id: "elevator", step: "STEP 2 ・ エレベーター", type: "single",
+when: function(a){ return a.buildingType === "mansion";},
+title: "大きな部材を運べるエレベーターはありますか？",
+help: "エレベーターが無い場合は、階段での手運びの割増がかかります。",
+options: [
+{ v: "yes", label: "ある", desc: "エレベーターで搬入できる。追加費用なし"},
+{ v: "no", label: "ない（階段のみ）", desc: "次に階数をお聞きします"},
+{ v: "unknown", label: "わからない", desc: "備考に現地確認と記載します"}
+]
+},
+{
+id: "mFloor", step: "STEP 3 ・ 部屋の階", type: "single",
+when: function(a){ return a.buildingType === "mansion" && a.elevator === "no";},
+title: "お部屋は何階ですか？",
+help: "エレベーターが無いため、階数に応じて階段搬入の割増を計上します。",
+options: [
+{ v: "f1", label: "1階", desc: "追加費用なし"},
+{ v: "f2", label: "2階", desc: "階段搬入の割増を計上します"},
+{ v: "f3", label: "3階以上", desc: "階段搬入の割増（3階分）を計上します"},
+{ v: "unknown", label: "わからない", desc: "備考に現地確認と記載します"}
+]
+},
+{
+id: "route", step: "STEP 2 ・ 搬入経路", type: "single",
+when: function(a){ return a.buildingType === "unknown";},
+title: "大きな部材の搬入経路は？",
+help: "浴槽・キッチン本体・洗面台などは大きな部材です。エレベーターが無い2階以上は手運びの割増がかかります。",
+options: [
+{ v: "easy", label: "1階、またはエレベーターで運べる", desc: "追加費用なし"},
+{ v: "stairs", label: "階段のみ（2階以上・手運び）", desc: "階段搬入の割増を計上します"},
 { v: "unknown", label: "わからない", desc: "備考に現地確認と記載します"}
 ]
 },
@@ -737,23 +771,40 @@ var lines = [], notes = [];
 function add(group, name, spec, qty, unit, price) {
 lines.push({ group: group, name: name, spec: spec || "", qty: qty, unit: unit, price: price});
 }
+/* 階段で運ぶ階数（0＝割増なし、2＝2階、3＝3階以上、null＝未確認） */
+var level = 0, levelUnknown = false;
 if (a.buildingType === "mansion") {
 notes.push("マンションのため、管理組合への工事申請・届出の要否、搬入可能時間、共用部（エレベーター・廊下・玄関）の養生条件は、管理規約とあわせて現地確認が必要です。");
+if (a.elevator === "yes") {
+notes.push("搬入はエレベーター使用を想定しています。部材がエレベーターに入るか、養生範囲と使用可能時間は管理組合に確認します。");
+} else if (a.elevator === "no") {
+if (a.mFloor === "f2") level = 2;
+else if (a.mFloor === "f3") level = 3;
+else if (a.mFloor === "unknown") levelUnknown = true;
+} else if (a.elevator === "unknown") {
+notes.push("エレベーターの有無が未確認です。階段のみの場合は、階数に応じて搬入手間の割増が追加になります。");
+}
+} else if (a.buildingType === "detached") {
+if (a.floor === "f2") level = 2;
+else if (a.floor === "f3") level = 3;
+else if (a.floor === "unknown") levelUnknown = true;
 } else if (a.buildingType === "unknown") {
 notes.push("建物の種類が未確認です。マンションの場合は管理組合への届出や搬入制限の確認が必要です。");
+if (a.route === "stairs") level = 2;
+else if (a.route === "unknown") levelUnknown = true;
 }
-if (a.route === "stairs") {
+if (level >= 2) {
 var BIG = ["bath", "kitchen", "vanity", "toilet"];
 var n = 0;
 if (typeof selectedCats !== "undefined") selectedCats.forEach(function(id){ if (BIG.indexOf(id) >= 0) n++;});
 if (n === 0) n = 1;
-add("共通工事", "階段搬入手間（割増）", "エレベーターが無く大きな部材を手運びする分の割増／対象工事 " + n + "件分", 1, "式",
-PRICE.carryStairsBase + PRICE.carryStairsPer * Math.max(0, n - 1));
-} else if (a.route === "unknown") {
-notes.push("搬入経路が未確認です。階段のみの場合は搬入手間の割増が追加になります。搬入経路の幅・階段の踊り場も現地で確認します。");
+add("共通工事", "階段搬入手間（割増）",
+(level >= 3? "3階以上": "2階") + "まで大きな部材を階段で手運びする分の割増／対象工事 " + n + "件分", 1, "式",
+PRICE.carryStairsBase + PRICE.carryStairsPer * Math.max(0, n - 1) + (level >= 3? PRICE.carryStairs3f: 0));
+if (a.buildingType === "unknown") notes.push("階段搬入の割増は2階として計上しています。3階以上の場合は追加になります。");
 }
-if (a.route === "elevator" && a.buildingType === "mansion") {
-notes.push("搬入はエレベーター使用を想定しています。養生範囲と使用可能時間は管理組合に確認します。");
+if (levelUnknown) {
+notes.push("工事する階が未確認です。2階以上で階段搬入になる場合は、搬入手間の割増が追加になります。搬入経路の幅・階段の踊り場も現地で確認します。");
 }
 if (a.age === "a30" || a.age === "a31") {
 notes.push("築年数が経過しているため、下地・配管・配線の劣化状況は現地調査で重点的に確認します。解体後に追加工事が必要と判明した場合は、別途ご相談のうえ進めます。");
@@ -2049,7 +2100,7 @@ return null;
       if (currentIdx >= vis.length) currentIdx = vis.length - 1;
       var q = vis[currentIdx];
       var oc = overallCounts();
-      $("qStep").textContent = cat.name + " ・ " + q.step;
+      $("qStep").textContent = cat.name + " ・ " + q.step.replace(/^STEP\s*\d+/, "STEP " + (currentIdx + 1));
       $("qTitle").textContent = q.title;
       $("qHelp").textContent = q.help || "";
       $("progLabel").textContent = cat.name + " ・ 質問 " + (currentIdx + 1) + " / " + vis.length +
@@ -2451,109 +2502,301 @@ return null;
       var s = ($("docSubject").value || "見積書").replace(/[\\\/:*?"<>|]/g, "");
       return s ? s + " 見積書" : "見積書";
     }
+    /* ExcelJSは「Excelでダウンロード」を押したときだけ読み込む（ページ表示を軽くするため） */
+    var EXCELJS_URL = "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js";
+    function loadExcelJS(cb) {
+      if (window.ExcelJS) { cb(true); return; }
+      var sc = document.createElement("script");
+      sc.src = EXCELJS_URL;
+      sc.onload = function () { cb(!!window.ExcelJS); };
+      sc.onerror = function () { cb(false); };
+      document.head.appendChild(sc);
+    }
+
+    var excelBusy = false;
     function buildExcel() {
-      if (typeof XLSX === "undefined") { downloadCsvFallback(); return; }
-      var aoa = [];
-      var formulas = {};
-      function push(row) { aoa.push(row); return aoa.length; }
+      if (excelBusy) return;
+      excelBusy = true;
+      toast("Excelファイルを作成しています…");
+      loadExcelJS(function (ok) {
+        if (!ok) { excelBusy = false; downloadCsvFallback(); return; }
+        try {
+          makeWorkbook().xlsx.writeBuffer().then(function (buf) {
+            var blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = fileBaseName() + ".xlsx";
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+            excelBusy = false;
+            toast("Excelファイルをダウンロードしました");
+          }).catch(function () { excelBusy = false; downloadCsvFallback(); });
+        } catch (e) { excelBusy = false; downloadCsvFallback(); }
+      });
+    }
+
+    /* 一般的な工務店の見積書レイアウト（A4縦・横1ページに収めて印刷） */
+    function makeWorkbook() {
+      var NAVY = "FF1D3A5F", PALE = "FFEEF3F8", GRAY = "FFF6F8FA", YELLOW = "FFFFF6D5", LINE = "FFB9C5D1", GREEN = "FFF2F8F4";
+      var FONT = "游ゴシック";
+      var wb = new ExcelJS.Workbook();
+      wb.creator = "リフォーム見積りシミュレーター";
+      var ws = wb.addWorksheet("御見積書", {
+        pageSetup: {
+          paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+          horizontalCentered: true,
+          margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 }
+        },
+        headerFooter: { oddFooter: "&C&P / &N ページ" },
+        views: [{ showGridLines: false }]
+      });
+      ws.columns = [
+        { key: "no", width: 5 }, { key: "item", width: 24 }, { key: "spec", width: 38 },
+        { key: "qty", width: 8 }, { key: "unit", width: 8 }, { key: "price", width: 12 }, { key: "amt", width: 14 }
+      ];
+      var thin = { style: "thin", color: { argb: LINE } };
+      var box = { top: thin, left: thin, bottom: thin, right: thin };
+      function fill(argb) { return { type: "pattern", pattern: "solid", fgColor: { argb: argb } }; }
+      function font(o) { o = o || {}; o.name = FONT; if (!o.size) o.size = 10; return o; }
+      function styleRange(r, c1, c2, st) {
+        for (var c = c1; c <= c2; c++) {
+          var cell = ws.getCell(r, c);
+          Object.keys(st).forEach(function (k) { cell[k] = st[k]; });
+        }
+      }
+      /* 全角は2、半角は1として長さを数え、折り返し後の行数から行の高さを決める */
+      function textWidth(s) { var w = 0; s = String(s || ""); for (var i = 0; i < s.length; i++) w += s.charCodeAt(i) > 0xff ? 2 : 1; return w; }
+      function linesFor(s, colWidth) { return Math.max(1, Math.ceil(textWidth(s) / Math.max(1, colWidth - 1))); }
+      var NOTE_W = (5 + 24 + 38 + 8 + 8 + 12 + 14) * 0.92;
+      function noteRow(text, opts) {
+        opts = opts || {};
+        var row = ws.addRow([text]);
+        ws.mergeCells(row.number, 1, row.number, 7);
+        var c = row.getCell(1);
+        c.font = font({ size: opts.size || 9.5, bold: !!opts.bold, color: { argb: opts.color || "FF43536A" } });
+        c.alignment = { wrapText: true, vertical: "top" };
+        row.height = Math.max(15, linesFor(text, NOTE_W) * 13.5 + 3);
+        return row;
+      }
+      function sectionTitle(text) {
+        var row = ws.addRow([text]);
+        ws.mergeCells(row.number, 1, row.number, 7);
+        row.getCell(1).font = font({ size: 11, bold: true, color: { argb: NAVY } });
+        row.getCell(1).border = { bottom: { style: "medium", color: { argb: NAVY } } };
+        row.height = 20;
+        return row;
+      }
 
       var today = new Date();
       var dateStr = today.getFullYear() + "年" + (today.getMonth() + 1) + "月" + today.getDate() + "日";
-      push(["御見積書"]);
-      push(["作成日", dateStr, "", "", "", "", "有効期限", validUntilText()]);
-      push(["お客様名", ($("clientName").value || "") + " 様"]);
-      push(["件名", $("docSubject").value || "リフォーム工事"]);
-      push(["工事場所", $("docPlace").value || ""]);
-      push(["施工者", $("docCompany").value || ""]);
-      push(["施工者 住所", $("docCompanyAddr") ? ($("docCompanyAddr").value || "") : ""]);
-      push(["施工者 電話", $("docCompanyTel") ? ($("docCompanyTel").value || "") : ""]);
-      push(["工期の目安", durationText()]);
-      push([]);
-      var headRow = push(["No.", "項目", "仕様・備考", "数量", "単位", "単価", "金額"]);
+      var t = calcTotals(estLines, ratePct, discountVal);
 
-      var groupRows = [];
-      var no = 1;
+      /* --- タイトル --- */
+      ws.mergeCells("A1:G1");
+      var title = ws.getCell("A1");
+      title.value = "御　見　積　書";
+      title.font = font({ size: 20, bold: true, color: { argb: NAVY } });
+      title.alignment = { horizontal: "center", vertical: "middle" };
+      title.border = { bottom: { style: "double", color: { argb: NAVY } } };
+      ws.getRow(1).height = 36;
+      ws.getRow(2).height = 8;
+
+      /* --- 右上：日付・番号・期限 --- */
+      var meta = [["作成日", dateStr], ["見積番号", $("docNo").value || ""], ["有効期限", validUntilText().replace(/（.*）/, "")]];
+      meta.forEach(function (m, i) {
+        var r = 3 + i;
+        ws.getCell(r, 5).value = m[0];
+        ws.getCell(r, 5).font = font({ size: 9, color: { argb: "FF68788C" } });
+        ws.mergeCells(r, 6, r, 7);
+        ws.getCell(r, 6).value = m[1];
+        ws.getCell(r, 6).font = font({ size: 9.5 });
+        ws.getCell(r, 6).alignment = { horizontal: "right" };
+      });
+
+      /* --- 左上：宛名・件名・場所 --- */
+      ws.mergeCells("A3:C3");
+      var cn = ws.getCell("A3");
+      cn.value = (($("clientName").value || "").trim() || "　　　　　　　　") + "　様";
+      cn.font = font({ size: 15, bold: true });
+      cn.border = { bottom: { style: "medium", color: { argb: "FF1B2735" } } };
+      ws.getRow(3).height = 26;
+      ws.mergeCells("A4:C4");
+      ws.getCell("A4").value = "件名：" + ($("docSubject").value || "リフォーム工事");
+      ws.getCell("A4").font = font({ size: 10 });
+      ws.mergeCells("A5:C5");
+      ws.getCell("A5").value = "工事場所：" + ($("docPlace").value || "");
+      ws.getCell("A5").font = font({ size: 10 });
+      ws.mergeCells("A6:C6");
+      ws.getCell("A6").value = "下記のとおり御見積り申し上げます。";
+      ws.getCell("A6").font = font({ size: 9.5, color: { argb: "FF43536A" } });
+
+      /* --- 右：発行者 --- */
+      var co = [$("docCompany").value || "", $("docCompanyAddr").value || "", $("docCompanyTel").value || ""];
+      ws.getCell("E6").value = "施工者（発行者）";
+      ws.getCell("E6").font = font({ size: 8.5, color: { argb: "FF68788C" } });
+      co.forEach(function (v, i) {
+        var r = 7 + i;
+        ws.mergeCells(r, 5, r, 7);
+        var c = ws.getCell(r, 5);
+        c.value = v || (i === 0 ? "（会社名）" : "");
+        c.font = font({ size: i === 0 ? 11 : 9, bold: i === 0, color: { argb: v ? "FF1B2735" : "FFB9C5D1" } });
+      });
+      if (!co[0]) {
+        ws.mergeCells("E10:G10");
+        ws.getCell("E10").value = "※発行者未設定のため概算見積書としてお使いください";
+        ws.getCell("E10").font = font({ size: 8, color: { argb: "FFC2501A" } });
+      }
+
+      /* --- 御見積金額 --- */
+      ws.mergeCells("A8:B9");
+      ws.mergeCells("C8:C9");
+      var lab = ws.getCell("A8"), amt = ws.getCell("C8");
+      lab.value = "御見積金額（税込）";
+      lab.font = font({ size: 11, bold: true, color: { argb: "FFFFFFFF" } });
+      lab.fill = fill(NAVY);
+      lab.alignment = { horizontal: "center", vertical: "middle" };
+      amt.font = font({ size: 18, bold: true, color: { argb: NAVY } });
+      amt.alignment = { horizontal: "center", vertical: "middle" };
+      amt.numFmt = '"¥"#,##0';
+      amt.fill = fill(PALE);
+      var medium = { style: "medium", color: { argb: NAVY } };
+      ["A8", "B8", "C8", "A9", "B9", "C9"].forEach(function (a) {
+        ws.getCell(a).border = { top: medium, bottom: medium, left: medium, right: medium };
+      });
+      ws.getRow(8).height = 22; ws.getRow(9).height = 22;
+      ws.mergeCells("A10:C10");
+      ws.getCell("A10").value = "（うち消費税 " + yen(t.tax) + "）　工期の目安：" + durationText();
+      ws.getCell("A10").font = font({ size: 8.5, color: { argb: "FF68788C" } });
+      ws.getCell("A10").alignment = { wrapText: true, vertical: "top" };
+      ws.getRow(10).height = Math.max(15, linesFor(ws.getCell("A10").value, 67) * 12 + 3);
+      ws.addRow([]);
+
+      /* --- 明細 --- */
+      var head = ws.addRow(["No.", "項目", "仕様・内容", "数量", "単位", "単価", "金額"]);
+      head.height = 20;
+      styleRange(head.number, 1, 7, {
+        font: font({ bold: true, color: { argb: "FFFFFFFF" } }), fill: fill(NAVY),
+        alignment: { horizontal: "center", vertical: "middle" }, border: box
+      });
+      ws.pageSetup.printTitlesRow = head.number + ":" + head.number;
+
+      var groupSubRows = [], no = 1;
       groupOrder().forEach(function (g) {
-        push([g]);
-        var firstData = aoa.length + 1;
+        var gr = ws.addRow([g]);
+        ws.mergeCells(gr.number, 1, gr.number, 7);
+        styleRange(gr.number, 1, 7, { fill: fill(PALE), border: box });
+        gr.getCell(1).font = font({ bold: true, color: { argb: NAVY } });
+        gr.height = 18;
+        var first = gr.number + 1;
         estLines.forEach(function (l) {
           if (l.group !== g) return;
-          var r = push([no++, l.name, l.spec, l.qty, l.unit, l.price, null]);
-          formulas[r] = { G: { f: "ROUND(D" + r + "*F" + r + ",0)", v: Math.round(l.qty * l.price) } };
+          var row = ws.addRow([no++, l.name, l.spec, l.qty, l.unit, l.price, null]);
+          var r = row.number;
+          row.getCell(7).value = { formula: "ROUND(D" + r + "*F" + r + ",0)", result: Math.round(l.qty * l.price) };
+          styleRange(r, 1, 7, { border: box, font: font(), alignment: { vertical: "top", wrapText: true } });
+          row.getCell(1).alignment = { horizontal: "center", vertical: "top" };
+          row.getCell(1).font = font({ size: 9, color: { argb: "FF68788C" } });
+          row.getCell(2).font = font({ bold: true });
+          row.getCell(3).font = font({ size: 8.5, color: { argb: "FF43536A" } });
+          row.getCell(5).alignment = { horizontal: "center", vertical: "top" };
+          [4, 6].forEach(function (c) { row.getCell(c).fill = fill(YELLOW); });
+          row.getCell(4).numFmt = "#,##0.0#";
+          row.getCell(4).alignment = { horizontal: "right", vertical: "top" };
+          row.getCell(6).numFmt = "#,##0;[Red]-#,##0";
+          row.getCell(6).alignment = { horizontal: "right", vertical: "top" };
+          row.getCell(7).numFmt = "#,##0;[Red]-#,##0";
+          row.getCell(7).alignment = { horizontal: "right", vertical: "top" };
+          row.getCell(7).font = font({ bold: true });
+          var n = Math.max(linesFor(l.name, 24) * 1.0, linesFor(l.spec, 38 * 1.15));
+          row.height = Math.max(18, n * 12.5 + 5);
         });
-        var lastData = aoa.length;
-        var sr = push(["", g + " 小計", "", "", "", "", null]);
-        formulas[sr] = { G: { f: "SUM(G" + firstData + ":G" + lastData + ")", v: groupSubtotal(g) } };
-        groupRows.push(sr);
+        var last = ws.lastRow.number;
+        var sr = ws.addRow(["", "", g + "　小計"]);
+        ws.mergeCells(sr.number, 1, sr.number, 6);
+        sr.getCell(1).value = g + "　小計";
+        sr.getCell(7).value = { formula: "SUM(G" + first + ":G" + last + ")", result: groupSubtotal(g) };
+        styleRange(sr.number, 1, 7, { fill: fill(GRAY), border: box, font: font({ bold: true }) });
+        sr.getCell(1).alignment = { horizontal: "right" };
+        sr.getCell(7).numFmt = "#,##0;[Red]-#,##0";
+        groupSubRows.push(sr.number);
       });
 
-      push([]);
-      var tv = calcTotals(estLines, ratePct, discountVal);
-      var subRow = push(["", "小計", "", "", "", "", null]);
-      formulas[subRow] = { G: { f: groupRows.map(function (r) { return "G" + r; }).join("+"), v: tv.subtotal } };
-      var rateRow = push(["", "諸経費率", "", ratePct / 100, "", "", ""]);
-      var expRow = push(["", "諸経費", "", "", "", "", null]);
-      formulas[expRow] = { G: { f: "ROUND(G" + subRow + "*D" + rateRow + ",0)", v: tv.expenses } };
-      var discRow = push(["", "出精値引き", "", "", "", "", discountVal > 0 ? -discountVal : 0]);
-      var taxableRow = push(["", "税抜合計", "", "", "", "", null]);
-      formulas[taxableRow] = { G: { f: "MAX(0,G" + subRow + "+G" + expRow + "+G" + discRow + ")", v: tv.taxable } };
-      var taxRow = push(["", "消費税（10％）", "", "", "", "", null]);
-      formulas[taxRow] = { G: { f: "ROUNDDOWN(G" + taxableRow + "*0.1,0)", v: tv.tax } };
-      var grandRow = push(["", "合計（税込）", "", "", "", "", null]);
-      formulas[grandRow] = { G: { f: "G" + taxableRow + "+G" + taxRow, v: tv.total } };
+      /* --- 合計欄 --- */
+      function totRow(label, formula, result, opts) {
+        opts = opts || {};
+        var row = ws.addRow([]);
+        var r = row.number;
+        ws.mergeCells(r, 1, r, 5);
+        row.getCell(1).value = label;
+        row.getCell(1).alignment = { horizontal: "right", vertical: "middle" };
+        if (opts.input !== undefined) {
+          row.getCell(6).value = opts.input;
+          row.getCell(6).fill = fill(YELLOW);
+          row.getCell(6).numFmt = opts.inputFmt || "#,##0";
+          row.getCell(6).alignment = { horizontal: "right" };
+        }
+        row.getCell(7).value = formula ? { formula: formula, result: result } : result;
+        row.getCell(7).numFmt = opts.fmt || "#,##0;[Red]-#,##0";
+        styleRange(r, 1, 7, { border: box, font: font({ bold: true }) });
+        if (opts.grand) {
+          styleRange(r, 1, 7, { fill: fill(NAVY), font: font({ bold: true, size: 12, color: { argb: "FFFFFFFF" } }) });
+          row.height = 24;
+        } else row.height = 18;
+        return r;
+      }
+      ws.addRow([]);
+      var subR = totRow("小計", groupSubRows.map(function (r) { return "G" + r; }).join("+"), t.subtotal);
+      var expR = ws.lastRow.number + 1;
+      totRow("諸経費（率を右の黄色セルで変更可）", "ROUND(G" + subR + "*F" + expR + ",0)", t.expenses, { input: ratePct / 100, inputFmt: "0.0%" });
+      var discR = totRow("出精値引き（右の黄色セルに値引額を入力）", null, null, { input: discountVal });
+      ws.getCell("G" + discR).value = { formula: "-F" + discR, result: -discountVal };
+      var taxableR = totRow("税抜合計", "MAX(0,G" + subR + "+G" + expR + "+G" + discR + ")", t.taxable);
+      var taxR = totRow("消費税（10％）", "ROUNDDOWN(G" + taxableR + "*0.1,0)", t.tax);
+      var grandR = totRow("合計（税込）", "G" + taxableR + "+G" + taxR, t.total, { grand: true, fmt: '"¥"#,##0' });
+      amt.value = { formula: "G" + grandR, result: t.total };
 
-      push([]);
-      push(["備考・現地確認事項"]);
-      var base = ["本見積りは概算です。正式な金額は現地調査・採寸のうえ確定します。",
-                  "数量・単価のセルを書き換えると、金額・合計は数式で自動再計算されます。"];
-      selectedCats.forEach(function (id) {
-        catById(id).baseNotes.forEach(function (n) { base.push(n); });
-      });
-      estNotes.concat(base).forEach(function (n) { push(["・" + n]); });
-
-      push([]);
-      push(["工期・お支払い・保証について"]);
-      push(["工期の目安", durationText()]);
-      push(["お支払い条件（目安）", "契約時30％・着工時40％・完了引渡し時30％（小規模工事は完了時一括も可）"]);
-      push(["保証の目安", "施工箇所は引渡しから1年間を目安に保証。機器・建材はメーカー保証に準じます"]);
-      push(["想定条件（回答に基づく前提）", summarizeAssumptions().join(" ／ ")]);
-
+      /* --- 減額案 --- */
       if (estAlts.length > 0) {
-        push([]);
-        push(["減額案（バリュー案）― 床の仕上げを変えた場合"]);
-        push(["", "案", "内容", "床工事 税込目安", "", "", "本案との差額"]);
+        ws.addRow([]);
+        sectionTitle("減額案（バリュー案）― 床の仕上げを変えた場合");
+        var vh = ws.addRow(["", "案", "内容", "", "", "床工事 税込", "本案との差額"]);
+        ws.mergeCells(vh.number, 3, vh.number, 5);
+        styleRange(vh.number, 2, 7, { fill: fill(GREEN), font: font({ bold: true, size: 9 }), border: box, alignment: { horizontal: "center" } });
         estAlts.forEach(function (alt) {
           var at = altTotals(alt);
-          push(["", alt.title, alt.desc, at.alt, "", "", -at.diff]);
+          var row = ws.addRow(["", alt.title.replace(/^減額案：/, ""), alt.desc, "", "", at.alt, -at.diff]);
+          ws.mergeCells(row.number, 3, row.number, 5);
+          styleRange(row.number, 2, 7, { border: box, font: font({ size: 9 }), alignment: { wrapText: true, vertical: "top" } });
+          row.getCell(2).font = font({ size: 9.5, bold: true });
+          row.getCell(6).numFmt = "#,##0";
+          row.getCell(7).numFmt = "#,##0;[Red]-#,##0";
+          row.getCell(7).font = font({ size: 10, bold: true, color: { argb: "FF145C3A" } });
+          row.height = Math.max(18, Math.max(linesFor(alt.desc, 50), linesFor(alt.title, 24)) * 12.5 + 5);
         });
-        push(["", "※減額案は床工事分のみを本案と同じ条件で計算した比較です。採用した場合は差額が合計から下がります。"]);
+        noteRow("※減額案は床工事分のみを本案と同じ条件で計算した比較（諸経費・消費税込み）です。採用した場合は差額が合計から下がります。", { size: 8.5 });
       }
 
-      var ws = XLSX.utils.aoa_to_sheet(aoa);
-      Object.keys(formulas).forEach(function (r) {
-        Object.keys(formulas[r]).forEach(function (c) {
-          var addr = c + r;
-          /* v（計算済みの値）も入れておくと、スマホのプレビュー等でも金額が表示される */
-          ws[addr] = { t: "n", f: formulas[r][c].f, v: formulas[r][c].v };
-        });
-      });
-      ws["!cols"] = [{ wch: 6 }, { wch: 34 }, { wch: 52 }, { wch: 8 }, { wch: 6 }, { wch: 12 }, { wch: 14 }];
-      for (var r = headRow + 1; r <= grandRow; r++) {
-        ["F", "G"].forEach(function (c) {
-          var cell = ws[c + r];
-          if (cell && (cell.t === "n" || cell.t === "f")) cell.z = "#,##0";
-        });
-      }
-      var rateCell = ws["D" + rateRow];
-      if (rateCell) rateCell.z = "0.0%";
+      /* --- 想定条件・備考・工期など --- */
+      ws.addRow([]);
+      sectionTitle("想定条件（ご回答に基づく前提）");
+      summarizeAssumptions().forEach(function (s) { noteRow("・" + s); });
+      ws.addRow([]);
+      sectionTitle("備考・現地確認事項");
+      var base = ["本見積りは、質問へのご回答をもとに作成した概算です。正式な金額は現地調査・採寸のうえ確定します。",
+                  "黄色のセル（数量・単価・諸経費率・値引額）を書き換えると、金額・合計は数式で自動再計算されます。"];
+      selectedCats.forEach(function (id) { catById(id).baseNotes.forEach(function (n) { base.push(n); }); });
+      estNotes.concat(base).forEach(function (n) { noteRow("・" + n); });
+      ws.addRow([]);
+      sectionTitle("工期・お支払い・保証について");
+      noteRow("・工期の目安：" + durationText() + "（着工日は契約・材料手配後に調整します）");
+      noteRow("・お支払い条件（目安）：契約時 30％／着工時 40％／完了・引渡し時 30％。小規模工事は完了時一括払いも可能です。正式な条件は契約時に取り決めます。");
+      noteRow("・保証の目安：施工箇所は引渡しから1年間を目安に保証します。機器・建材については各メーカーの保証に準じます。");
 
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "見積書");
-      XLSX.writeFile(wb, fileBaseName() + ".xlsx");
-      toast("Excelファイルをダウンロードしました");
+      ws.pageSetup.printArea = "A1:G" + ws.lastRow.number;
+      return wb;
     }
 
-    /* SheetJSが読み込めなかった場合のCSVフォールバック */
+    /* ExcelJSが読み込めなかった場合のCSVフォールバック */
     function downloadCsvFallback() {
       var rows = [["No.", "項目", "仕様・備考", "数量", "単位", "単価", "金額"]];
       var no = 1;
@@ -2634,6 +2877,7 @@ return null;
       ["tubHoro", "ホーロー浴槽 差額"],
       ["carryStairsBase", "階段搬入手間 割増（基本）"],
       ["carryStairsPer", "階段搬入手間 割増（工事1件追加ごと）"],
+      ["carryStairs3f", "階段搬入手間 割増（3階以上の追加分）"],
       ["kDemo", "既存キッチン解体"],
       ["kWaste", "キッチン 産廃処分"],
       ["kInstall", "キッチン組立・設置"],
